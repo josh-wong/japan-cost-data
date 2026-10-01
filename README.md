@@ -1,2 +1,2 @@
-# japan-price-data
+# japan-cost-data
 
