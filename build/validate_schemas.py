@@ -32,6 +32,7 @@ import json
 import math
 import re
 import sys
+import urllib.error
 import urllib.parse
 from pathlib import Path
 
@@ -785,6 +786,15 @@ def run_check_tests(documents: dict, bundle: dict, movers: dict, manifest: dict)
     expect_check_failure("a manifest that expires before it is issued", "validUntil must be later",
                          lambda: check_manifest_times(Path("manifest.json"), {**manifest, "validUntil": manifest["issuedAt"]}))
 
+    weekly_series = copy.deepcopy(series)
+    weekly_series["frequency"] = "weekly"
+    weekly_series["observations"] = [{"period": "2025-W53", "value": 1.0}, {"period": "2026-W01", "value": 2.0}]
+    expect_check_failure("a mover whose previous week the year does not have", "is not a real period",
+                         lambda: check_movers(Path("movers.json"), movers, {mover["seriesId"]: weekly_series}))
+
+    run_host_error_tests(manifest_envelope=documents["manifest.json"])
+    run_change_summary_tests(documents)
+
     run_release_check_tests(documents, manifest)
 
     for label, change in (("a float", {"sequence": 2.0}), ("a non-ASCII key", {"\u00e9": 1}), ("an integer beyond 2**53", {"n": 2**60})):
@@ -808,6 +818,55 @@ def run_check_tests(documents: dict, bundle: dict, movers: dict, manifest: dict)
                                      ("2025-W52", "weekly", "2026-W01")):
         if following(period, frequency) != after:
             fail(Path(__file__), f"following({period}, {frequency}) is not {after}")
+
+
+def run_host_error_tests(manifest_envelope: dict) -> None:
+    """Runs select_live with hosts that answer HTTP errors."""
+    from fetch_live import HOSTS, select_live
+
+    key_file = load_json(FIXTURE_DIR / "test-public-key.json")
+    keys = {key_file["keyId"]: b64(key_file["publicKey"])}
+    state = {"lastManifest": manifest_envelope}
+
+    def answering(statuses: dict):
+        def fetcher(url):
+            status = statuses[url]
+            if status == 200:
+                return json.dumps(manifest_envelope).encode()
+            raise urllib.error.HTTPError(url, status, "test", None, None)
+        return fetcher
+
+    def select(statuses: dict):
+        with contextlib.redirect_stdout(io.StringIO()):
+            return select_live(state, keys, key_file["keyId"], answering(dict(zip(HOSTS, statuses))))
+
+    expect_check_failure("two hosts that answer 404", "no host supplied a valid manifest", lambda: select((404, 404)))
+    expect_check_failure("one host that answers 404 and one that answers 503", "no host supplied a valid manifest",
+                         lambda: select((404, 503)))
+    if select((503, 503)) != manifest_envelope:
+        fail(Path(__file__), "select_live did not fall back to the stored manifest when both hosts answered 503")
+    if select((503, 200)) != manifest_envelope:
+        fail(Path(__file__), "select_live ignored a valid host because the other answered 503")
+
+
+def run_change_summary_tests(documents: dict) -> None:
+    """Runs change_summary on a release whose earlier gap now has a value."""
+    from publisher import change_summary
+
+    name = "releases/example-release-2/release-manifest.json"
+    current = Release(name, documents[name], documents)
+    series_id, (bundle_path, _) = next(iter(current.series().items()))
+
+    def blank_first_value(bundle):
+        series = next(s for s in bundle["series"] if s["seriesId"] == series_id)
+        series["observations"][0]["value"] = None
+
+    previous_documents = {**documents, bundle_path: mutated(documents[bundle_path], blank_first_value)}
+    summary = change_summary(current, Release(name, documents[name], previous_documents))
+    if "change has no comparable prior value" not in summary["reasons"]:
+        fail(Path(__file__), "change_summary did not give a gap-filled period its own approval reason")
+    if "value change exceeds limit" in summary["reasons"]:
+        fail(Path(__file__), "change_summary reported a gap-filled period as a value change over the limit")
 
 
 def run_release_check_tests(documents: dict, manifest: dict) -> None:
