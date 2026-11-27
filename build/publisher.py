@@ -14,7 +14,7 @@ import tarfile
 from pathlib import Path, PurePosixPath
 
 import validate_schemas as checks
-from release_checks import Release, latest_pair, observed
+from release_checks import Release, mover_pair, observed
 from schema_tools import fixture_bytes, load_json, sha256_hex
 
 MAX_FILE = 50 * 1024 * 1024
@@ -220,8 +220,8 @@ def assemble(input_dir, freshness_file, release_id, output, issued_at, previous_
     series = [s for kind, _, doc in blobs.values() if kind == 'series-bundle' for s in doc['series']]
     movers = []
     for s in sorted(series, key=lambda s: s['seriesId']):
-        pair = latest_pair(s)
-        if s['validTo'] is None and pair and pair[1]['value'] > 0:
+        pair = mover_pair(s)
+        if pair:
             latest, prior = pair
             movers.append({'seriesId': s['seriesId'], 'latestPeriod': latest['period'], 'latestValue': latest['value'],
                            'previousPeriod': prior['period'], 'previousValue': prior['value'],

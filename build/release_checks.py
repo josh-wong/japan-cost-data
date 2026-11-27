@@ -92,6 +92,17 @@ def latest_pair(series: dict):
     return rows[latest], rows[latest - 1]
 
 
+def mover_pair(series: dict):
+    """(latest, previous) for a current series that belongs in the movers, else None.
+
+    A previous value of 0 has no percent change, so the movers schema excludes it.
+    """
+    pair = latest_pair(series)
+    if series["validTo"] is not None or pair is None or pair[1]["value"] <= 0:
+        return None
+    return pair
+
+
 def validity_window_problems(path: str, manifest: dict) -> list:
     """The signed manifest's validUntil must follow issuedAt by a policy window."""
     parse = lambda value: datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
@@ -187,7 +198,7 @@ def mover_problems(release: Release) -> list:
     listed = {mover["seriesId"] for mover in document["movers"]}
     return [Problem(path, f"{series_id}: has a latest and a previous value but is missing from the movers")
             for series_id, (_, series) in release.series().items()
-            if series["validTo"] is None and latest_pair(series) and series_id not in listed]
+            if mover_pair(series) and series_id not in listed]
 
 
 def coverage_problems(release: Release, issued_at) -> list:

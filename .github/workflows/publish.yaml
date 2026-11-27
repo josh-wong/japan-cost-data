@@ -54,19 +54,20 @@ jobs:
   sign-and-deploy:
     needs: [verify, approve]
     if: >-
-      always() && needs.verify.result == 'success' &&
+      !cancelled() && needs.verify.result == 'success' &&
       (needs.approve.result == 'success' || needs.approve.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
+    outputs:
+      pages_upload: ${{ steps.pages-upload.outcome }}
+      firebase: ${{ steps.firebase.outcome }}
     concurrency:
       group: sign-and-deploy
       queue: max
       cancel-in-progress: false
     permissions:
       contents: write
-      pages: write
-      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -118,8 +119,9 @@ jobs:
           git add state.json
           git commit -m 'Renew signed data manifest'
           git push origin HEAD:state
+      # Runs in every mode: a re-sign or rollback finishes a release whose earlier publish failed
+      # after the state push, and the edit changes nothing for a release that is already public.
       - name: Publish the validated archive
-        if: steps.request.outputs.mode == 'publish'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ steps.request.outputs.release_id }}
@@ -130,22 +132,43 @@ jobs:
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: site
-      - name: Deploy the primary
-        id: pages
-        if: steps.pages-upload.outcome == 'success'
+      - name: Install the fallback deployer without the credential in the environment
+        if: ${{ !cancelled() && steps.persist.outcome == 'success' }}
         continue-on-error: true
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        run: python3 -m pip install -r build/firebase-requirements.txt
       - name: Deploy the fallback independently
         id: firebase
-        if: always() && steps.persist.outcome == 'success'
+        if: ${{ !cancelled() && steps.persist.outcome == 'success' }}
         continue-on-error: true
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: python3 build/deploy_firebase.py --site site --project japan-cost-data
+  deploy-pages:
+    needs: sign-and-deploy
+    if: needs.sign-and-deploy.outputs.pages_upload == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Pages accepts a deployment only from a job in the github-pages environment.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+  report-failed-host:
+    needs: [sign-and-deploy, deploy-pages]
+    if: ${{ !cancelled() && needs.sign-and-deploy.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail the run when a host was not updated
+        env:
+          PAGES_UPLOAD: ${{ needs.sign-and-deploy.outputs.pages_upload }}
+          PAGES_DEPLOY: ${{ needs.deploy-pages.result }}
+          FIREBASE: ${{ needs.sign-and-deploy.outputs.firebase }}
         run: |
-          python3 -m pip install -r build/firebase-requirements.txt
-          python3 build/deploy_firebase.py --site site --project japan-cost-data
-      - name: Report a failed host
-        if: >-
-          always() && (steps.pages-upload.outcome != 'success' ||
-          steps.pages.outcome != 'success' || steps.firebase.outcome != 'success')
-        run: exit 1
+          test "$PAGES_UPLOAD" = success && test "$PAGES_DEPLOY" = success && test "$FIREBASE" = success

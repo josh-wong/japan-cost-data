@@ -46,10 +46,10 @@ def deploy(site, project):
         {'glob': '/v1/manifest.json', 'headers': {'Cache-Control': 'public,max-age=0,must-revalidate'}},
         {'glob': '/v1/releases/**', 'headers': {'Cache-Control': 'public,max-age=31536000,immutable'}}]}})
     hashes = {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}
+    by_digest = {hashes[name]: data for name, data in files.items()}
     for offset in range(0, len(hashes), 1000):
         chunk = dict(list(hashes.items())[offset:offset + 1000])
         populated = request('POST', 'https://firebasehosting.googleapis.com/v1beta1/' + version['name'] + ':populateFiles', json={'files': chunk})
-        by_digest = {hashes[name]: data for name, data in files.items()}
         upload_url = populated.get('uploadUrl', '')
         if populated.get('uploadRequiredHashes') and not upload_url.startswith('https://upload-firebasehosting.googleapis.com/'):
             raise ValueError('unexpected Hosting upload endpoint')
