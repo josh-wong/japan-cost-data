@@ -65,8 +65,8 @@ def sign(root, release_id, state, key_id, private_key, keys, issued_at, live=Non
             raise ValueError('issuedAt cannot go backwards')
     sequence = max(stored, live_sequence) + 1
     for entry in release.manifest['files']:
-        data = regular_bytes(root, entry['path'])
-        if entry['bytes'] != len(data) or entry['sha256'] != sha256_hex(data):
+        file_bytes = regular_bytes(root, entry['path'])
+        if entry['bytes'] != len(file_bytes) or entry['sha256'] != sha256_hex(file_bytes):
             raise ValueError('verified files changed during signing')
     payload = {'schemaVersion': 1, 'releaseId': release_id, 'sequence': sequence,
                'issuedAt': issued_at, 'validUntil': (now + dt.timedelta(days=45)).strftime('%Y-%m-%dT%H:%M:%SZ'),

@@ -87,7 +87,12 @@ def latest_pair(series: dict):
     latest = max((i for i, row in enumerate(rows) if row["value"] is not None), default=None)
     if latest is None or latest == 0 or rows[latest - 1]["value"] is None:
         return None
-    if following(rows[latest - 1]["period"], series["frequency"]) != rows[latest]["period"]:
+    try:
+        expected_period = following(rows[latest - 1]["period"], series["frequency"])
+    except ValueError:
+        # The schema's week pattern allows W53, which only some years have; the file check reports it.
+        return None
+    if expected_period != rows[latest]["period"]:
         return None
     return rows[latest], rows[latest - 1]
 

@@ -62,12 +62,12 @@ def read_release(root, release_id, issued_at=None, previous=None):
     for entry in manifest['files']:
         path = entry['path']
         safe_path(path)
-        data = regular_bytes(root, path)
-        if len(data) != entry['bytes'] or sha256_hex(data) != entry['sha256']:
+        file_bytes = regular_bytes(root, path)
+        if len(file_bytes) != entry['bytes'] or sha256_hex(file_bytes) != entry['sha256']:
             raise ValueError(f'digest or size mismatch: {path}')
         if checks.kind_of(Path(path)) != entry['kind']:
             raise ValueError(f'kind does not match path: {path}')
-        document = json.loads(data)
+        document = json.loads(file_bytes)
         validate(entry['kind'], document)
         documents[path] = document
     # Reuse the complete cross-file checks, including calendar periods, source dates,
@@ -104,10 +104,10 @@ def extract_archive(archive, destination):
             target = destination / member.name
             target.parent.mkdir(parents=True, exist_ok=True)
             with source.extractfile(member) as stream:
-                data = stream.read(member.size + 1)
-            if len(data) != member.size:
+                file_bytes = stream.read(member.size + 1)
+            if len(file_bytes) != member.size:
                 raise ValueError('truncated archive member')
-            target.write_bytes(data)
+            target.write_bytes(file_bytes)
     if not seen:
         raise ValueError('empty archive')
 
@@ -119,10 +119,10 @@ def write_archive(root, names, target):
         # TarInfo defaults and sorted paths keep its extended headers deterministic too.
         with tarfile.open(fileobj=compressed, mode='w', format=tarfile.PAX_FORMAT) as archive:
             for name in sorted(names):
-                data = regular_bytes(root, name)
+                file_bytes = regular_bytes(root, name)
                 entry = tarfile.TarInfo(name)
-                entry.size, entry.mode = len(data), 0o644
-                archive.addfile(entry, io.BytesIO(data))
+                entry.size, entry.mode = len(file_bytes), 0o644
+                archive.addfile(entry, io.BytesIO(file_bytes))
 
 
 def release_names(release):
@@ -213,8 +213,8 @@ def assemble(input_dir, freshness_file, release_id, output, issued_at, previous_
         kind = checks.kind_of(Path(full))
         if kind not in ('catalog', 'geography', 'series-bundle', 'baseline'):
             raise ValueError(f'input not allowed: {relative}')
-        data = regular_bytes(input_dir, relative)
-        document = json.loads(data)
+        file_bytes = regular_bytes(input_dir, relative)
+        document = json.loads(file_bytes)
         validate(kind, document)
         blobs[relative] = (kind, fixture_bytes(document), document)
     series = [s for kind, _, doc in blobs.values() if kind == 'series-bundle' for s in doc['series']]
@@ -234,9 +234,9 @@ def assemble(input_dir, freshness_file, release_id, output, issued_at, previous_
     entries, series_entries = [], []
     old_entries = previous.manifest['files'] if previous else []
     root = output / 'verified'
-    for relative, (kind, data, _) in sorted(blobs.items()):
+    for relative, (kind, file_bytes, _) in sorted(blobs.items()):
         name = f'releases/{release_id}/{relative}'
-        digest = sha256_hex(data)
+        digest = sha256_hex(file_bytes)
         for old in old_entries:
             # Only reuse paths inside the retention window. Republish older unchanged files.
             if (old['kind'] == kind and old['path'].split('/', 2)[2] == relative
@@ -245,8 +245,8 @@ def assemble(input_dir, freshness_file, release_id, output, issued_at, previous_
                 break
         destination = root / name
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(data)
-        entries.append({'kind': kind, 'path': name, 'bytes': len(data), 'sha256': digest})
+        destination.write_bytes(file_bytes)
+        entries.append({'kind': kind, 'path': name, 'bytes': len(file_bytes), 'sha256': digest})
     for s in sorted(series, key=lambda s: s['seriesId']):
         rows = observed(s)
         policy = freshness[s['seriesId']]

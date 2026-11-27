@@ -52,12 +52,12 @@ def merge(source, destination):
         if not path.is_file():
             continue
         name = path.relative_to(source).as_posix()
-        data = regular_bytes(source, name)
+        file_bytes = regular_bytes(source, name)
         target = destination / name
-        if target.exists() and target.read_bytes() != data:
+        if target.exists() and target.read_bytes() != file_bytes:
             raise ValueError('conflicting immutable paths')
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
+        target.write_bytes(file_bytes)
 
 
 def download(tag, directory):

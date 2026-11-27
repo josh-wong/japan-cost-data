@@ -122,6 +122,7 @@ jobs:
       # Runs in every mode: a re-sign or rollback finishes a release whose earlier publish failed
       # after the state push, and the edit changes nothing for a release that is already public.
       - name: Publish the validated archive
+        id: publish-archive
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ steps.request.outputs.release_id }}
@@ -133,12 +134,12 @@ jobs:
         with:
           path: site
       - name: Install the fallback deployer without the credential in the environment
-        if: ${{ !cancelled() && steps.persist.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.persist.outcome == 'success' && steps.publish-archive.outcome == 'success' }}
         continue-on-error: true
         run: python3 -m pip install -r build/firebase-requirements.txt
       - name: Deploy the fallback independently
         id: firebase
-        if: ${{ !cancelled() && steps.persist.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.persist.outcome == 'success' && steps.publish-archive.outcome == 'success' }}
         continue-on-error: true
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
