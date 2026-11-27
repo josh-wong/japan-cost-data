@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mover summary file (schema version 1)",
+  "description": "movers.json. One file for the whole release, so the Today tab can rank movers and decreases for any area without a request that reveals the user's area. The pipeline computes every figure with the versioned rule below, and the app never recomputes it. Only a series with an observed latest value and an observed previous value appears here, and a superseded series never does.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "ruleVersion", "movers"],
+  "properties": {
+    "schemaVersion": {"$ref": "common.schema.json#/$defs/schemaVersion"},
+    "ruleVersion": {
+      "description": "Names the deterministic rule that computed every percentChange in the file, so each figure stays traceable.",
+      "$ref": "common.schema.json#/$defs/text"
+    },
+    "movers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seriesId", "latestPeriod", "latestValue", "previousPeriod", "previousValue", "percentChange"],
+        "properties": {
+          "seriesId": {"$ref": "common.schema.json#/$defs/id"},
+          "latestPeriod": {
+            "description": "Later than previousPeriod, in the same form. JSON Schema cannot compare the two, so build/validate_schemas.py does.",
+            "$ref": "common.schema.json#/$defs/anyPeriod"
+          },
+          "latestValue": {"$ref": "common.schema.json#/$defs/value"},
+          "previousPeriod": {"$ref": "common.schema.json#/$defs/anyPeriod"},
+          "previousValue": {
+            "description": "Above zero, because percentChange divides by it.",
+            "$ref": "common.schema.json#/$defs/value",
+            "exclusiveMinimum": 0
+          },
+          "percentChange": {
+            "description": "(latestValue / previousValue - 1) × 100 in percent, so 2.5 means a 2.5 percent increase. The value is not rounded.",
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}

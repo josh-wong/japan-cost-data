@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Geography reference file (schema version 1)",
+  "description": "geography.json. Lists every area the app can select, so home-area search and the fallback resolver never hardcode Japan's geography. The file is append-only: an areaId is never removed from a later release. Issue #14 builds the data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "areas", "sources"],
+  "properties": {
+    "schemaVersion": {"$ref": "common.schema.json#/$defs/schemaVersion"},
+    "areas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/area"}
+    },
+    "sources": {
+      "description": "One entry for each dataset used, with its licence and credit text. The app shows the credit with the geography data.",
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/source"}
+    }
+  },
+  "$defs": {
+    "area": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "areaId", "code", "level", "municipalityType", "nameJa", "nameEn", "parentAreaId",
+        "centroid", "selectable", "validFrom", "validTo", "successorAreaIds"
+      ],
+      "properties": {
+        "areaId": {"$ref": "common.schema.json#/$defs/areaId"},
+        "code": {
+          "description": "The official local government code, which can change in a merger. Null for a region, the national area and a survey group.",
+          "oneOf": [
+            {"type": "string", "pattern": "^[0-9]{2,6}(?![\\s\\S])"},
+            {"type": "null"}
+          ]
+        },
+        "level": {"$ref": "common.schema.json#/$defs/geographyLevel"},
+        "municipalityType": {
+          "description": "Says which kind of municipality-level area this is. A survey-group is a survey area that is not a single municipality, such as Tokyo's 23 wards (東京都区部). Null for every other level.",
+          "enum": ["city", "designated-city-ward", "special-ward", "town", "village", "survey-group", null]
+        },
+        "nameJa": {"$ref": "common.schema.json#/$defs/text"},
+        "nameEn": {"$ref": "common.schema.json#/$defs/text"},
+        "parentAreaId": {
+          "description": "The next step up the fallback chain. Null only for the national area.",
+          "oneOf": [
+            {"$ref": "common.schema.json#/$defs/areaId"},
+            {"type": "null"}
+          ]
+        },
+        "centroid": {
+          "description": "Null for a region, the national area and a survey group. Present for every selectable municipality, and the location shortlist ranks only those.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["lat", "lon"],
+              "properties": {
+                "lat": {"type": "number", "minimum": -90, "maximum": 90},
+                "lon": {"type": "number", "minimum": -180, "maximum": 180}
+              }
+            },
+            {"type": "null"}
+          ]
+        },
+        "selectable": {
+          "description": "Whether a user can pick the area as a home area. A survey group and an area with a validTo are not selectable.",
+          "type": "boolean"
+        },
+        "validFrom": {"$ref": "common.schema.json#/$defs/date"},
+        "validTo": {
+          "description": "The last date the area exists, or null while it is current.",
+          "oneOf": [
+            {"$ref": "common.schema.json#/$defs/date"},
+            {"type": "null"}
+          ]
+        },
+        "successorAreaIds": {
+          "description": "The areas that replace this one after a merger or rename. Empty while the area is current.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "common.schema.json#/$defs/areaId"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"level": {"const": "municipality"}}, "required": ["level"]},
+          "then": {"properties": {"municipalityType": {"type": "string"}, "parentAreaId": {"type": "string"}}},
+          "else": {"properties": {"municipalityType": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"level": {"enum": ["region", "national"]}}, "required": ["level"]},
+          "then": {"properties": {"code": {"type": "null"}, "centroid": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"level": {"const": "national"}}, "required": ["level"]},
+          "then": {"properties": {"parentAreaId": {"type": "null"}}},
+          "else": {"properties": {"parentAreaId": {"type": "string"}}}
+        },
+        {
+          "if": {"properties": {"level": {"const": "prefecture"}}, "required": ["level"]},
+          "then": {"properties": {"code": {"type": "string"}}}
+        },
+        {
+          "if": {"properties": {"municipalityType": {"const": "survey-group"}}, "required": ["municipalityType"]},
+          "then": {"properties": {"selectable": {"const": false}, "code": {"type": "null"}, "centroid": {"type": "null"}}},
+          "else": {
+            "if": {"properties": {"level": {"const": "municipality"}}, "required": ["level"]},
+            "then": {"properties": {"code": {"type": "string"}}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"level": {"const": "municipality"}, "selectable": {"const": true}},
+            "required": ["level", "selectable"]
+          },
+          "then": {"properties": {"centroid": {"type": "object"}}}
+        },
+        {
+          "if": {"properties": {"successorAreaIds": {"minItems": 1}}, "required": ["successorAreaIds"]},
+          "then": {"properties": {"validTo": {"type": "string"}}}
+        },
+        {
+          "if": {"properties": {"validTo": {"type": "string"}}, "required": ["validTo"]},
+          "then": {"properties": {"selectable": {"const": false}}}
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "organization", "title", "url", "licence", "creditText", "codeRevisionDate"],
+      "properties": {
+        "role": {"enum": ["area-codes", "centroids"]},
+        "organization": {"$ref": "common.schema.json#/$defs/text"},
+        "title": {"$ref": "common.schema.json#/$defs/text"},
+        "url": {"$ref": "common.schema.json#/$defs/httpsUrl"},
+        "licence": {"$ref": "common.schema.json#/$defs/text"},
+        "creditText": {"$ref": "common.schema.json#/$defs/text"},
+        "codeRevisionDate": {
+          "description": "The revision date of the dataset the areas or centroids were taken from.",
+          "$ref": "common.schema.json#/$defs/date"
+        }
+      }
+    }
+  }
+}

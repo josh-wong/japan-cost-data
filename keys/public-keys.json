@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "Ed25519",
+  "publicKeyEncoding": "base64 of the raw 32-byte public key",
+  "keys": [
+    {
+      "keyId": "2026-a",
+      "role": "active",
+      "publicKey": "TGVQ3TNiLWZyHKyVEhq3QYzUnS8JDbiWCy0EadmzLF0="
+    },
+    {
+      "keyId": "backup-2026-a",
+      "role": "backup",
+      "publicKey": "jPAnUnqJObqiAYOyG7eNc4T3A98mtXx9ZzBmGeJ834k="
+    }
+  ]
+}
