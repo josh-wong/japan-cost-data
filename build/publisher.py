@@ -182,7 +182,9 @@ def change_summary(current, previous, max_percent=25, max_series_changes=10):
     reasons = []
     if len(added) + len(removed) > max_series_changes:
         reasons.append('series count change exceeds limit')
-    if any(c['percent'] is None or c['percent'] > max_percent for c in changes):
+    if any(c['percent'] is None for c in changes):
+        reasons.append('change has no comparable prior value')
+    if any(c['percent'] is not None and c['percent'] > max_percent for c in changes):
         reasons.append('value change exceeds limit')
     return {'requiresApproval': bool(reasons), 'reasons': reasons, 'added': added, 'removed': removed, 'changes': changes}
 

@@ -4,6 +4,7 @@
 import argparse
 import base64
 import json
+import urllib.error
 import urllib.request
 from http.client import HTTPException
 from pathlib import Path
@@ -33,6 +34,14 @@ def select_live(state, keys, key_id, fetcher=fetch):
     for index, url in enumerate(HOSTS, 1):
         try:
             raw = fetcher(url)
+        except urllib.error.HTTPError as error:
+            if error.code >= 500:
+                print(f'::warning::Host {index} is unavailable; checking the other sequence witnesses.')
+            else:
+                # A reachable host that lacks the manifest disagrees with the stored state.
+                invalid = True
+                print(f'::warning::Host {index} answered HTTP {error.code}; checking the other host.')
+            continue
         except OSError:
             print(f'::warning::Host {index} is unavailable; checking the other sequence witnesses.')
             continue

@@ -405,7 +405,13 @@ def check_movers(path: Path, movers: dict, series_by_id: dict) -> None:
             fail(path, f"{name}: mover has no latest and previous value in the series")
             continue
         latest_row, previous_row = rows[latest], rows[latest - 1]
-        if following(previous_row["period"], series["frequency"]) != latest_row["period"]:
+        try:
+            period_before_latest = following(previous_row["period"], series["frequency"])
+        except ValueError:
+            # The schema's week pattern allows W53, which only some years have.
+            fail(path, f"{name}: the mover's previous period {previous_row['period']} is not a real period")
+            continue
+        if period_before_latest != latest_row["period"]:
             fail(path, f"{name}: the mover's previous period is not the period just before the latest")
             continue
         expected = (latest_row["period"], latest_row["value"], previous_row["period"], previous_row["value"])
