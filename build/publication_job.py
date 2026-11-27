@@ -73,6 +73,9 @@ def download(tag, directory):
 def prepare(mode, tag, output):
     if mode not in ('publish', 'resign', 'rollback'):
         raise ValueError('unknown mode')
+    if mode != 'resign' and not tag:
+        # Only a re-sign may omit the tag, because it re-signs the current release.
+        raise ValueError(f'mode {mode} needs the tag input: a draft candidate release ID to publish, or a retained release ID to roll back to')
     state = state_from_remote()
     keys = {k['keyId']: base64.b64decode(k['publicKey'], validate=True) for k in load_json(Path('keys/public-keys.json'))['keys']}
     if state:
