@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Manifest (schema version 1)",
+  "description": "The decoded payload of the signed manifest envelope. It is small (about 1 to 2 KB) so re-signing it every 14 days is cheap. The file is canonical JSON (RFC 8785), and because it holds no fractional number, sorting the keys and removing all whitespace produces the same bytes. The sequence number counts per signing key, and a client rejects a manifest whose sequence is lower than the highest it accepted for that key. See the design document, section 4.3, for the verification rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "releaseId", "sequence", "issuedAt", "validUntil", "signingKeyId", "supersedesKeyId", "releaseManifest"],
+  "properties": {
+    "schemaVersion": {"$ref": "common.schema.json#/$defs/schemaVersion"},
+    "releaseId": {"$ref": "common.schema.json#/$defs/releaseId"},
+    "sequence": {
+      "description": "A counter that increases with every manifest signed by the same key, including a re-sign and a rollback. Starts at 1.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "issuedAt": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "validUntil": {
+      "description": "After this instant a client treats every series as stale. Normally about 45 days after issuedAt.",
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "signingKeyId": {
+      "description": "Must equal the envelope's signingKeyId.",
+      "$ref": "common.schema.json#/$defs/keyId"
+    },
+    "supersedesKeyId": {
+      "description": "The key that a backup-signed recovery manifest retires. Null in every other manifest.",
+      "oneOf": [
+        {"$ref": "common.schema.json#/$defs/keyId"},
+        {"type": "null"}
+      ]
+    },
+    "releaseManifest": {
+      "description": "Pins the immutable release manifest by path and digest, so a rollback manifest pins a prior release the same way.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "description": "Relative to the version root (/v1/).",
+          "type": "string",
+          "pattern": "^releases/[a-z0-9][a-z0-9-]{0,63}/release-manifest\\.json(?![\\s\\S])"
+        },
+        "sha256": {"$ref": "common.schema.json#/$defs/sha256"}
+      }
+    }
+  }
+}

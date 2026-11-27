@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Signed manifest envelope (schema version 1)",
+  "description": "manifest.json, the only signed file. It is a single file so a cache can never serve a manifest and a signature from different deployments. To verify: (1) base64-decode `manifest` to the manifest bytes; (2) verify `signature` over exactly those bytes with the embedded Ed25519 public key named by `signingKeyId`; (3) only then parse the bytes as JSON and validate them against manifest.schema.json; (4) require the parsed signingKeyId to equal the envelope's. Never parse or trust the manifest bytes before the signature verifies.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "signingKeyId", "manifest", "signature"],
+  "properties": {
+    "schemaVersion": {"$ref": "common.schema.json#/$defs/schemaVersion"},
+    "signingKeyId": {
+      "description": "Selects which embedded public key verifies the signature.",
+      "$ref": "common.schema.json#/$defs/keyId"
+    },
+    "manifest": {
+      "description": "The manifest bytes: canonical JSON (RFC 8785) of an object that satisfies manifest.schema.json, encoded as UTF-8 and then as base64. These decoded bytes are exactly what the signature covers.",
+      "allOf": [
+        {"$ref": "common.schema.json#/$defs/base64"},
+        {"minLength": 4, "maxLength": 16384}
+      ]
+    },
+    "signature": {
+      "description": "An Ed25519 (RFC 8032, pure) signature of the decoded manifest bytes: 64 bytes, base64-encoded, which is 88 characters.",
+      "allOf": [
+        {"$ref": "common.schema.json#/$defs/base64"},
+        {"minLength": 88, "maxLength": 88}
+      ]
+    }
+  }
+}

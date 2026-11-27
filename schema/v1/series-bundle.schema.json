@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Series bundle file (schema version 1)",
+  "description": "series/<bundle-id>.json. A bundle holds many series, grouped by item category, so a release has a few bundle files and not one file per series. Observations are sorted by period, oldest first, with no duplicate period (JSON Schema cannot express that, so build/validate_schemas.py checks it).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "bundleId", "series"],
+  "properties": {
+    "schemaVersion": {"$ref": "common.schema.json#/$defs/schemaVersion"},
+    "bundleId": {"$ref": "common.schema.json#/$defs/id"},
+    "series": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/series"}
+    }
+  },
+  "$defs": {
+    "series": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seriesId", "measureType", "itemId", "sourceItemLabelJa", "geography", "unit", "frequency",
+        "taxTreatment", "validTo", "successorSeriesIds", "revision", "observations", "source", "comparability"
+      ],
+      "properties": {
+        "seriesId": {
+          "description": "Stable for a stable definition. A specification or index-base change creates a new series ID and links the old series to it with validTo and successorSeriesIds.",
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "measureType": {"$ref": "common.schema.json#/$defs/measureType"},
+        "itemId": {"$ref": "common.schema.json#/$defs/id"},
+        "sourceItemLabelJa": {
+          "description": "The item name exactly as the source publishes it.",
+          "$ref": "common.schema.json#/$defs/text"
+        },
+        "geography": {"$ref": "#/$defs/seriesGeography"},
+        "unit": {"$ref": "#/$defs/unit"},
+        "frequency": {"$ref": "common.schema.json#/$defs/frequency"},
+        "taxTreatment": {"$ref": "common.schema.json#/$defs/taxTreatment"},
+        "validTo": {
+          "description": "The last date on which this series definition applies, or null while it is current. A superseded series is used only to show history.",
+          "oneOf": [
+            {"$ref": "common.schema.json#/$defs/date"},
+            {"type": "null"}
+          ]
+        },
+        "successorSeriesIds": {
+          "description": "The series that continue this one after a break. Empty while the series is current. Exactly one entry lets the app move a watch entry or saved check automatically.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "common.schema.json#/$defs/id"}
+        },
+        "revision": {
+          "description": "The source's revision practice. Each observation's status records whether that value was revised.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["marker", "note"],
+          "properties": {
+            "marker": {
+              "description": "The source's revision marker, or none when the source does not revise.",
+              "$ref": "common.schema.json#/$defs/text"
+            },
+            "note": {
+              "oneOf": [
+                {"$ref": "common.schema.json#/$defs/note"},
+                {"type": "null"}
+              ]
+            }
+          }
+        },
+        "observations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/observation"}
+        },
+        "source": {"$ref": "common.schema.json#/$defs/source"},
+        "comparability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["specificationId", "notes"],
+          "properties": {
+            "specificationId": {
+              "description": "Identifies the item specification the source measures. Two series are comparable only when the resolver finds them compatible, and a different value is a different definition.",
+              "$ref": "common.schema.json#/$defs/text"
+            },
+            "notes": {
+              "description": "Survey caveats, such as an exclusion that comparison copy must show.",
+              "type": "array",
+              "items": {"$ref": "common.schema.json#/$defs/note"}
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"measureType": {"const": "retail_price"}}, "required": ["measureType"]},
+          "then": {
+            "properties": {
+              "unit": {
+                "properties": {
+                  "currency": {"const": "JPY"},
+                  "quantity": {"type": "number"},
+                  "quantityUnit": {"$ref": "common.schema.json#/$defs/physicalQuantityUnit"},
+                  "indexBase": {"type": "null"}
+                }
+              },
+              "taxTreatment": {"enum": ["tax_included", "tax_excluded", "unknown"]},
+              "observations": {"items": {"properties": {"value": {"exclusiveMinimum": 0}}}}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"measureType": {"const": "price_index"}}, "required": ["measureType"]},
+          "then": {
+            "properties": {
+              "unit": {
+                "properties": {
+                  "currency": {"type": "null"},
+                  "quantity": {"type": "null"},
+                  "quantityUnit": {"type": "null"},
+                  "indexBase": {"type": "object"}
+                }
+              },
+              "taxTreatment": {"const": "not_applicable"},
+              "observations": {"items": {"properties": {"value": {"exclusiveMinimum": 0}}}}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"measureType": {"const": "household_expenditure"}}, "required": ["measureType"]},
+          "then": {
+            "properties": {
+              "unit": {
+                "properties": {
+                  "currency": {"const": "JPY"},
+                  "quantity": {"const": 1},
+                  "quantityUnit": {"const": "household"},
+                  "indexBase": {"type": "null"}
+                }
+              },
+              "taxTreatment": {"const": "not_applicable"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"frequency": {"const": "weekly"}}, "required": ["frequency"]},
+          "then": {"properties": {"observations": {"items": {"properties": {"period": {"$ref": "common.schema.json#/$defs/periodWeekly"}}}}}}
+        },
+        {
+          "if": {"properties": {"frequency": {"const": "monthly"}}, "required": ["frequency"]},
+          "then": {"properties": {"observations": {"items": {"properties": {"period": {"$ref": "common.schema.json#/$defs/periodMonthly"}}}}}}
+        },
+        {
+          "if": {"properties": {"frequency": {"const": "quarterly"}}, "required": ["frequency"]},
+          "then": {"properties": {"observations": {"items": {"properties": {"period": {"$ref": "common.schema.json#/$defs/periodQuarterly"}}}}}}
+        },
+        {
+          "if": {"properties": {"frequency": {"const": "annual"}}, "required": ["frequency"]},
+          "then": {"properties": {"observations": {"items": {"properties": {"period": {"$ref": "common.schema.json#/$defs/periodAnnual"}}}}}}
+        },
+        {
+          "if": {"properties": {"successorSeriesIds": {"minItems": 1}}, "required": ["successorSeriesIds"]},
+          "then": {"properties": {"validTo": {"$ref": "common.schema.json#/$defs/date"}}}
+        }
+      ]
+    },
+    "seriesGeography": {
+      "description": "The geography of the observations. The user's home area is a separate field in the app and never appears here.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "areaId", "sourceCode", "displayNameJa"],
+      "properties": {
+        "level": {"$ref": "common.schema.json#/$defs/geographyLevel"},
+        "areaId": {
+          "description": "An areaId in the geography file. This is what the resolver joins on, so a merger of official codes never breaks a series.",
+          "$ref": "common.schema.json#/$defs/areaId"
+        },
+        "sourceCode": {
+          "description": "The area code as the source published it, for provenance only. Null when the source publishes none.",
+          "oneOf": [
+            {"$ref": "common.schema.json#/$defs/text"},
+            {"type": "null"}
+          ]
+        },
+        "displayNameJa": {
+          "description": "The area name as the source published it.",
+          "$ref": "common.schema.json#/$defs/text"
+        }
+      }
+    },
+    "unit": {
+      "description": "Every field is always present. Which values are allowed depends on the series measure type: a retail price has a currency, a quantity and a physical unit; a price index has only indexBase; a household expenditure is JPY per household.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currency", "quantity", "quantityUnit", "indexBase"],
+      "properties": {
+        "currency": {
+          "oneOf": [
+            {"const": "JPY"},
+            {"type": "null"}
+          ]
+        },
+        "quantity": {
+          "description": "How much the price covers, for example 5 with kg for a 5 kg bag.",
+          "oneOf": [
+            {"type": "number", "exclusiveMinimum": 0},
+            {"type": "null"}
+          ]
+        },
+        "quantityUnit": {
+          "oneOf": [
+            {"$ref": "common.schema.json#/$defs/quantityUnit"},
+            {"type": "null"}
+          ]
+        },
+        "indexBase": {
+          "description": "The base of a price index, for example period 2020 and value 100. Null for every other measure type.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["period", "value"],
+              "properties": {
+                "period": {"$ref": "common.schema.json#/$defs/anyPeriod"},
+                "value": {"type": "number", "exclusiveMinimum": 0}
+              }
+            },
+            {"type": "null"}
+          ]
+        }
+      }
+    },
+    "observation": {
+      "description": "One period's value. A missing or suppressed period keeps its row with a null value. Never write a zero for a gap and never interpolate across one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["period", "value", "status"],
+      "properties": {
+        "period": {"$ref": "common.schema.json#/$defs/anyPeriod"},
+        "value": {
+          "oneOf": [
+            {"$ref": "common.schema.json#/$defs/value"},
+            {"type": "null"}
+          ]
+        },
+        "status": {"$ref": "common.schema.json#/$defs/observationStatus"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"enum": ["observed", "revised"]}}, "required": ["status"]},
+          "then": {"properties": {"value": {"type": "number"}}},
+          "else": {"properties": {"value": {"type": "null"}}}
+        }
+      ]
+    }
+  }
+}

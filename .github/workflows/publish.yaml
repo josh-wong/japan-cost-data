@@ -1,0 +1,151 @@
+# Install in the public data repository as .github/workflows/publish.yaml.
+name: Publish data
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [publish, resign, rollback]
+        default: publish
+      tag:
+        description: Draft candidate tag, or retained release ID for rollback
+        type: string
+  schedule:
+    - cron: '23 3 */7 * *'
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Draft releases require push access. Production secrets remain in the signing job.
+    permissions:
+      contents: write
+    outputs:
+      approval: ${{ steps.prepare.outputs.approval }}
+      manifest_digest: ${{ steps.prepare.outputs.manifest_digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -m pip install -r build/requirements.txt
+      - id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.mode || 'resign' }}
+          TAG: ${{ inputs.tag }}
+        run: python3 build/publication_job.py prepare --mode "$MODE" --tag "$TAG"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-release
+          path: prepared/
+          if-no-files-found: error
+          retention-days: 15
+  approve:
+    needs: verify
+    if: needs.verify.outputs.approval == 'true'
+    runs-on: ubuntu-latest
+    environment: release-approval
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - run: echo 'Approved the verified candidate for this workflow run.'
+  sign-and-deploy:
+    needs: [verify, approve]
+    if: >-
+      always() && needs.verify.result == 'success' &&
+      (needs.approve.result == 'success' || needs.approve.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    concurrency:
+      group: sign-and-deploy
+      queue: max
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: state
+          path: state
+          ssh-key: ${{ secrets.STATE_DEPLOY_KEY }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-release
+          path: prepared
+      - run: python3 -m pip install -r build/requirements.txt
+      - id: request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_DIGEST: ${{ needs.verify.outputs.manifest_digest }}
+        run: python3 build/publication_job.py check --expected-digest "$EXPECTED_DIGEST"
+      - name: Store and verify recovery assets before advancing state
+        id: archive
+        if: steps.request.outputs.mode == 'publish'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_DIGEST: ${{ needs.verify.outputs.manifest_digest }}
+        run: python3 build/publication_job.py archive --expected-digest "$EXPECTED_DIGEST"
+      - name: Select a verified live manifest
+        run: >-
+          python3 build/fetch_live.py --state state/state.json --keys keys/public-keys.json
+          --key-id 2026-a --output live.json
+      - name: Recompute and sign
+        env:
+          SIGNING_PRIVATE_KEY: ${{ secrets.SIGNING_PRIVATE_KEY }}
+          RELEASE_ID: ${{ steps.request.outputs.release_id }}
+          BASE_RELEASE: ${{ steps.request.outputs.base_release }}
+        run: |
+          args=()
+          if test -f live.json; then args+=(--live live.json); fi
+          if test -n "$BASE_RELEASE"; then args+=(--expected-base "$BASE_RELEASE"); fi
+          python3 build/sign_release.py --root prepared/verified --release-id "$RELEASE_ID" \
+            --state state/state.json --keys keys/public-keys.json --key-id 2026-a \
+            --issued-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --site site "${args[@]}"
+      - name: Persist the consumed sequence before deployment
+        id: persist
+        working-directory: state
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add state.json
+          git commit -m 'Renew signed data manifest'
+          git push origin HEAD:state
+      - name: Publish the validated archive
+        if: steps.request.outputs.mode == 'publish'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.request.outputs.release_id }}
+        run: gh release edit "$RELEASE_ID" --draft=false
+      - name: Upload the complete Pages snapshot
+        id: pages-upload
+        continue-on-error: true
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: site
+      - name: Deploy the primary
+        id: pages
+        if: steps.pages-upload.outcome == 'success'
+        continue-on-error: true
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+      - name: Deploy the fallback independently
+        id: firebase
+        if: always() && steps.persist.outcome == 'success'
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          python3 -m pip install -r build/firebase-requirements.txt
+          python3 build/deploy_firebase.py --site site --project japan-cost-data
+      - name: Report a failed host
+        if: >-
+          always() && (steps.pages-upload.outcome != 'success' ||
+          steps.pages.outcome != 'success' || steps.firebase.outcome != 'success')
+        run: exit 1

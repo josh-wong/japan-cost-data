@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shared definitions (schema version 1)",
+  "description": "Definitions that the other schema files reference. This file validates nothing by itself.",
+  "$defs": {
+    "schemaVersion": {
+      "description": "The schema version of the file. A client rejects any value it does not support.",
+      "const": 1
+    },
+    "id": {
+      "description": "A stable identifier for a series, item, bundle or baseline. Lowercase letters, digits, dots, hyphens and underscores, and it starts with a letter or digit. It appears in file paths and URLs, so it never holds a slash.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}(?![\\s\\S])"
+    },
+    "releaseId": {
+      "description": "The identifier of one release. It is a path segment under /v1/releases/, so it is lowercase letters, digits and hyphens only.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}(?![\\s\\S])"
+    },
+    "areaId": {
+      "description": "A Colaide-assigned area identifier. It is never reused, never changes and is never removed from a later release.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}(?![\\s\\S])"
+    },
+    "keyId": {
+      "description": "A signing key ID. It is neutral: lowercase letters, digits and hyphens, and it never names the app.",
+      "type": "string",
+      "pattern": "^(?!.*colaide)[a-z0-9][a-z0-9-]{0,63}(?![\\s\\S])"
+    },
+    "text": {
+      "description": "A non-empty single-line label or name.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\r\\n]+(?![\\s\\S])"
+    },
+    "note": {
+      "description": "A non-empty free-text note.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "httpsUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://[^\\s]+(?![\\s\\S])",
+      "maxLength": 2048
+    },
+    "timestamp": {
+      "description": "A UTC instant, written exactly as YYYY-MM-DDThh:mm:ssZ with no fraction and no offset, so the same instant always has the same bytes.",
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z(?![\\s\\S])"
+    },
+    "date": {
+      "description": "A calendar date, written as YYYY-MM-DD.",
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])(?![\\s\\S])"
+    },
+    "sha256": {
+      "description": "A SHA-256 digest as 64 lowercase hexadecimal characters.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "base64": {
+      "description": "Standard base64 (RFC 4648 section 4) with padding and no line breaks.",
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![\\s\\S])"
+    },
+    "measureType": {
+      "description": "What a value measures. A client never combines, plots on one scale or converts between measure types.",
+      "enum": ["retail_price", "price_index", "household_expenditure"]
+    },
+    "geographyLevel": {
+      "description": "The level of an area. The fallback order is municipality, prefecture, region, national. A municipality covers every city, ward, town, village and survey area.",
+      "enum": ["municipality", "prefecture", "region", "national"]
+    },
+    "frequency": {
+      "description": "How often the source publishes a new observation period.",
+      "enum": ["weekly", "monthly", "quarterly", "annual"]
+    },
+    "taxTreatment": {
+      "description": "Whether a yen price includes consumption tax. Only a retail price series is restricted to the first three values. Use not_applicable for an index or an expenditure series.",
+      "enum": ["tax_included", "tax_excluded", "unknown", "not_applicable"]
+    },
+    "observationStatus": {
+      "description": "observed: first published value. revised: the source later changed the value. missing: the source has no value for the period. suppressed: the source withheld the value.",
+      "enum": ["observed", "revised", "missing", "suppressed"]
+    },
+    "physicalQuantityUnit": {
+      "description": "A unit for the quantity a price covers. Mass (g, kg) and volume (mL, L) convert losslessly within their own family. A count (piece) never converts to a mass or volume.",
+      "enum": ["g", "kg", "mL", "L", "piece"]
+    },
+    "quantityUnit": {
+      "description": "A physical unit, or household for a per-household expenditure.",
+      "enum": ["g", "kg", "mL", "L", "piece", "household"]
+    },
+    "periodAnnual": {
+      "description": "An annual period: YYYY.",
+      "type": "string",
+      "pattern": "^[0-9]{4}(?![\\s\\S])"
+    },
+    "periodQuarterly": {
+      "description": "A quarterly period: YYYY-Qn.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-Q[1-4](?![\\s\\S])"
+    },
+    "periodMonthly": {
+      "description": "A monthly period: YYYY-MM.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])(?![\\s\\S])"
+    },
+    "periodWeekly": {
+      "description": "A weekly period as an ISO 8601 week: YYYY-Www.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-W(0[1-9]|[1-4][0-9]|5[0-3])(?![\\s\\S])"
+    },
+    "anyPeriod": {
+      "description": "An observation period in any frequency. The series schema pins the form to the series frequency.",
+      "type": "string",
+      "pattern": "^[0-9]{4}(-(0[1-9]|1[0-2])|-Q[1-4]|-W(0[1-9]|[1-4][0-9]|5[0-3]))?(?![\\s\\S])"
+    },
+    "value": {
+      "description": "An observed value. Never negative. Never a stand-in for a missing value.",
+      "type": "number",
+      "minimum": 0
+    },
+    "source": {
+      "description": "Where a series or baseline came from, with the credit the source requires.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organization", "title", "dataset", "tableId", "url", "creditText", "processedCreditText", "publishedAt", "retrievedAt"],
+      "properties": {
+        "organization": {"$ref": "#/$defs/text"},
+        "title": {"$ref": "#/$defs/text"},
+        "dataset": {"$ref": "#/$defs/text"},
+        "tableId": {"$ref": "#/$defs/text"},
+        "url": {"$ref": "#/$defs/httpsUrl"},
+        "creditText": {
+          "description": "The source line in the form the publisher requires, for example 出典：「調査名」（府省名）.",
+          "$ref": "#/$defs/text"
+        },
+        "processedCreditText": {
+          "description": "The statement shown with any value that Colaide derives, for example 「調査名」（府省名）を加工して作成.",
+          "$ref": "#/$defs/text"
+        },
+        "publishedAt": {"$ref": "#/$defs/timestamp"},
+        "retrievedAt": {"$ref": "#/$defs/timestamp"}
+      }
+    }
+  }
+}

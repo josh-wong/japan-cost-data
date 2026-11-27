@@ -1,0 +1,6 @@
+# Python packages for the schema checks (validate_schemas.py and generate_schema_fixtures.py).
+# The three packages below are pinned to exact versions. Their own dependencies are not pinned,
+# so update these deliberately and watch for a change in the rejection checks' message text.
+jsonschema==4.23.0
+cryptography==43.0.3
+referencing==0.37.0

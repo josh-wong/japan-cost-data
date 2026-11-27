@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "What-if baseline file (schema version 1)",
+  "description": "baselines/<baseline-id>.json. An illustrative official household expenditure baseline for the What-if basket. The monthly amounts are the yearly source amounts divided by 12 and rounded as the rounding field says. The app never scales a baseline by household size.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "baselineId", "version", "householdType", "source", "categories", "rounding"],
+  "properties": {
+    "schemaVersion": {"$ref": "common.schema.json#/$defs/schemaVersion"},
+    "baselineId": {
+      "description": "Names the household type and the classification revision, for example household.single.r2025. A new revision changes the ID, so the pipeline never splices across revisions.",
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "version": {
+      "description": "The data year. A new year under the same revision changes the version and keeps the ID.",
+      "$ref": "common.schema.json#/$defs/text"
+    },
+    "householdType": {
+      "description": "Which households the baseline describes. A profile of one person selects single, and two or more people select two_or_more.",
+      "enum": ["single", "two_or_more"]
+    },
+    "source": {"$ref": "common.schema.json#/$defs/source"},
+    "categories": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["categoryId", "nameJa", "nameEn", "monthlyYen"],
+        "properties": {
+          "categoryId": {"$ref": "common.schema.json#/$defs/id"},
+          "nameJa": {"$ref": "common.schema.json#/$defs/text"},
+          "nameEn": {"$ref": "common.schema.json#/$defs/text"},
+          "monthlyYen": {
+            "description": "Yen per household per month, already rounded, and above zero. A category the baseline lacks is absent, never zero, so the app disables its slider.",
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "rounding": {
+      "description": "nearest_yen rounds to the nearest yen and rounds an exact half up (away from zero for a positive amount), so the pipeline and the app produce the same figure.",
+      "const": "nearest_yen"
+    }
+  }
+}

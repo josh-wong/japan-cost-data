@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Item catalog file (schema version 1)",
+  "description": "catalog.json. Lists every item the app can check and the series that back it. The alias lists drive the Japanese and English item search. An item is supported only after an adapter fixture and a real observation pass the data release checks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "items"],
+  "properties": {
+    "schemaVersion": {"$ref": "common.schema.json#/$defs/schemaVersion"},
+    "items": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/item"}
+    }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["itemId", "nameJa", "nameEn", "aliases", "unitBasis", "sourceItemCode", "supported", "seriesIds"],
+      "properties": {
+        "itemId": {"$ref": "common.schema.json#/$defs/id"},
+        "nameJa": {"$ref": "common.schema.json#/$defs/text"},
+        "nameEn": {"$ref": "common.schema.json#/$defs/text"},
+        "aliases": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ja", "en"],
+          "properties": {
+            "ja": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/text"}},
+            "en": {"type": "array", "uniqueItems": true, "items": {"$ref": "common.schema.json#/$defs/text"}}
+          }
+        },
+        "unitBasis": {
+          "description": "The quantity the app normalizes a price to for this item, for example 1 kg. Always a physical unit, never a household. Null for an item that is not a priced good, such as an expenditure category.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["quantity", "quantityUnit"],
+              "properties": {
+                "quantity": {"type": "number", "exclusiveMinimum": 0},
+                "quantityUnit": {"$ref": "common.schema.json#/$defs/physicalQuantityUnit"}
+              }
+            },
+            {"type": "null"}
+          ]
+        },
+        "sourceItemCode": {
+          "description": "The item code as the source publishes it, or null when the item has none.",
+          "oneOf": [
+            {"$ref": "common.schema.json#/$defs/text"},
+            {"type": "null"}
+          ]
+        },
+        "supported": {
+          "description": "False for an item that is listed but has no validated, fresh, compatible series.",
+          "type": "boolean"
+        },
+        "seriesIds": {
+          "description": "Every series for the item. Each ID exists in exactly one series bundle of the same release.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "common.schema.json#/$defs/id"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Release manifest (schema version 1)",
+  "description": "releases/<release-id>/release-manifest.json. An immutable file with no signature or expiry of its own, because the signed manifest pins it by digest. It lists the files of one release, and a release publishes only the files that changed, so the path of an unchanged file points to the earlier release that first published it. It also holds each series' freshness inputs, so a client evaluates freshness offline. It never lists itself.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "releaseId", "files", "series"],
+  "properties": {
+    "schemaVersion": {"$ref": "common.schema.json#/$defs/schemaVersion"},
+    "releaseId": {"$ref": "common.schema.json#/$defs/releaseId"},
+    "files": {
+      "description": "Every file of the release, whether it was published in this release or an earlier one. Cross-file references are validated against this list and not against the files that happen to be on a device.",
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "series": {
+      "description": "One entry for every series in every series bundle, and for no other series.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/seriesFreshness"}
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "bytes", "sha256"],
+      "properties": {
+        "kind": {
+          "description": "Which schema the file follows.",
+          "enum": ["catalog", "geography", "movers", "series-bundle", "baseline"]
+        },
+        "path": {
+          "description": "Relative to the version root (/v1/). The release ID in the path is the release that first published the file.",
+          "type": "string",
+          "pattern": "^releases/[a-z0-9][a-z0-9-]{0,63}/[a-z0-9][a-z0-9._/-]*\\.json(?![\\s\\S])"
+        },
+        "bytes": {"type": "integer", "minimum": 2, "maximum": 52428800},
+        "sha256": {"$ref": "common.schema.json#/$defs/sha256"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "catalog"}}, "required": ["kind"]},
+          "then": {"properties": {"path": {"pattern": "^releases/[a-z0-9][a-z0-9-]{0,63}/catalog\\.json(?![\\s\\S])"}}}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "geography"}}, "required": ["kind"]},
+          "then": {"properties": {"path": {"pattern": "^releases/[a-z0-9][a-z0-9-]{0,63}/geography\\.json(?![\\s\\S])"}}}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "movers"}}, "required": ["kind"]},
+          "then": {"properties": {"path": {"pattern": "^releases/[a-z0-9][a-z0-9-]{0,63}/movers\\.json(?![\\s\\S])"}}}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "series-bundle"}}, "required": ["kind"]},
+          "then": {"properties": {"path": {"pattern": "^releases/[a-z0-9][a-z0-9-]{0,63}/series/[a-z0-9][a-z0-9._-]{0,127}\\.json(?![\\s\\S])"}}}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "baseline"}}, "required": ["kind"]},
+          "then": {"properties": {"path": {"pattern": "^releases/[a-z0-9][a-z0-9-]{0,63}/baselines/[a-z0-9][a-z0-9._-]{0,127}\\.json(?![\\s\\S])"}}}
+        }
+      ]
+    },
+    "seriesFreshness": {
+      "description": "The inputs for the freshness window (design document, section 5.2): a benchmark stays fresh until expectedNextRelease plus graceDays.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seriesId", "frequency", "latestObservationPeriod", "expectedNextRelease", "graceDays"],
+      "properties": {
+        "seriesId": {"$ref": "common.schema.json#/$defs/id"},
+        "frequency": {"$ref": "common.schema.json#/$defs/frequency"},
+        "latestObservationPeriod": {
+          "description": "The latest period with an observed or revised value, in the form the series frequency uses. Null when the series has no such value.",
+          "oneOf": [
+            {"$ref": "common.schema.json#/$defs/anyPeriod"},
+            {"type": "null"}
+          ]
+        },
+        "expectedNextRelease": {
+          "description": "The date the source is expected to publish the next period, computed by the publisher from the adapter's cadence and typical lag. Null for a superseded series, which receives no new period.",
+          "oneOf": [
+            {"$ref": "common.schema.json#/$defs/date"},
+            {"type": "null"}
+          ]
+        },
+        "graceDays": {
+          "description": "Days after expectedNextRelease before the series counts as stale. The default is 7 and each adapter can set its own.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 366
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"frequency": {"const": "weekly"}}, "required": ["frequency"]},
+          "then": {"properties": {"latestObservationPeriod": {"oneOf": [{"$ref": "common.schema.json#/$defs/periodWeekly"}, {"type": "null"}]}}}
+        },
+        {
+          "if": {"properties": {"frequency": {"const": "monthly"}}, "required": ["frequency"]},
+          "then": {"properties": {"latestObservationPeriod": {"oneOf": [{"$ref": "common.schema.json#/$defs/periodMonthly"}, {"type": "null"}]}}}
+        },
+        {
+          "if": {"properties": {"frequency": {"const": "quarterly"}}, "required": ["frequency"]},
+          "then": {"properties": {"latestObservationPeriod": {"oneOf": [{"$ref": "common.schema.json#/$defs/periodQuarterly"}, {"type": "null"}]}}}
+        },
+        {
+          "if": {"properties": {"frequency": {"const": "annual"}}, "required": ["frequency"]},
+          "then": {"properties": {"latestObservationPeriod": {"oneOf": [{"$ref": "common.schema.json#/$defs/periodAnnual"}, {"type": "null"}]}}}
+        }
+      ]
+    }
+  }
+}
