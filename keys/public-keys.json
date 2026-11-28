@@ -4,9 +4,9 @@
   "publicKeyEncoding": "base64 of the raw 32-byte public key",
   "keys": [
     {
-      "keyId": "2026-a",
+      "keyId": "2026-b",
       "role": "active",
-      "publicKey": "TGVQ3TNiLWZyHKyVEhq3QYzUnS8JDbiWCy0EadmzLF0="
+      "publicKey": "BiAL8vSPCPlqZhq9ljDppoTUiDZm6krkC+3k3Kgm+04="
     },
     {
       "keyId": "backup-2026-a",
