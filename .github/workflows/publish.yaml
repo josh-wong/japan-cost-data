@@ -97,7 +97,7 @@ jobs:
       - name: Select a verified live manifest
         run: >-
           python3 build/fetch_live.py --state state/state.json --keys keys/public-keys.json
-          --key-id 2026-a --output live.json
+          --key-id 2026-b --output live.json
       - name: Recompute and sign
         env:
           SIGNING_PRIVATE_KEY: ${{ secrets.SIGNING_PRIVATE_KEY }}
@@ -108,7 +108,7 @@ jobs:
           if test -f live.json; then args+=(--live live.json); fi
           if test -n "$BASE_RELEASE"; then args+=(--expected-base "$BASE_RELEASE"); fi
           python3 build/sign_release.py --root prepared/verified --release-id "$RELEASE_ID" \
-            --state state/state.json --keys keys/public-keys.json --key-id 2026-a \
+            --state state/state.json --keys keys/public-keys.json --key-id 2026-b \
             --issued-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --site site "${args[@]}"
       - name: Persist the consumed sequence before deployment
         id: persist
