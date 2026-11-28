@@ -1,0 +1,18 @@
+{
+  "sequenceByKey": {
+    "2026-b": 1
+  },
+  "currentRelease": "r2026-11-28",
+  "retained": [
+    "r2026-11-28"
+  ],
+  "releaseDigests": {
+    "r2026-11-28": "b7acccfb8a037d243e6573081bd3858b4c81a8187a0d9e5607f5caf287123eb6"
+  },
+  "lastManifest": {
+    "schemaVersion": 1,
+    "signingKeyId": "2026-b",
+    "manifest": "eyJpc3N1ZWRBdCI6IjIwMjYtMTEtMjhUMTM6NDE6NDhaIiwicmVsZWFzZUlkIjoicjIwMjYtMTEtMjgiLCJyZWxlYXNlTWFuaWZlc3QiOnsicGF0aCI6InJlbGVhc2VzL3IyMDI2LTExLTI4L3JlbGVhc2UtbWFuaWZlc3QuanNvbiIsInNoYTI1NiI6ImI3YWNjY2ZiOGEwMzdkMjQzZTY1NzMwODFiZDM4NThiNGM4MWE4MTg3YTBkOWU1NjA3ZjVjYWYyODcxMjNlYjYifSwic2NoZW1hVmVyc2lvbiI6MSwic2VxdWVuY2UiOjEsInNpZ25pbmdLZXlJZCI6IjIwMjYtYiIsInN1cGVyc2VkZXNLZXlJZCI6bnVsbCwidmFsaWRVbnRpbCI6IjIwMjctMDEtMTJUMTM6NDE6NDhaIn0=",
+    "signature": "7K/bvBesFgZ6j4MsiuWrGIIcFFTBRaiQR4BIl8p0K9kWk7ibnTri9jyF/zbPjeOInnbx2kXfEa9MiYQVFfI+Aw=="
+  }
+}
